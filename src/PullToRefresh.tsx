@@ -191,7 +191,7 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
     return dy;
   }
   
-  this.onMouseMove = function (ele, e) {
+  onMouseMove = function (ele, e) {
         // 使用 pageY 对比有问题
         if (!(this.state.mouseDown&&!this.state.mouseUp)){return}
         var _screenY = e.pageY;
@@ -230,7 +230,7 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
             // https://github.com/ant-design/ant-design-mobile/issues/573#issuecomment-339560829
             // iOS UIWebView issue, It seems no problem in WKWebView
             if (isWebView && e.pageY < 0) {
-                _this.onMouseUp();
+                this.onMouseUp();
             }
         }
     };
@@ -285,7 +285,7 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
     }
   }
   
-    this.onMouseUp = function () {
+    onMouseUp = function () {
       this.state.mouseUp=false;
       this.state.mouseDown=false;
       if (this.state.dragOnEdge) {
