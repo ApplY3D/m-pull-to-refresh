@@ -53,6 +53,8 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
   state = {
     currSt: 'deactivate',
     dragOnEdge: false,
+    mouseDown: false,
+		mouseUp: false
   };
 
   containerRef: any;
@@ -124,6 +126,11 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
       touchmove: this.onTouchMove.bind(this, ele),
       touchend: this.onTouchEnd.bind(this, ele),
       touchcancel: this.onTouchEnd.bind(this, ele),
+      //mouse events
+      mousedown: this.onMouseDown.bind(this, ele),
+      mousemove: this.onMouseMove.bind(this, ele),
+      mouseup: this.onMouseUp.bind(this, ele),
+      mouseup: this.onMouseUp.bind(this, ele),
     };
     Object.keys(this._to).forEach(key => {
       ele.addEventListener(key, this._to[key], willPreventDefault);
@@ -139,6 +146,13 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
       ele.removeEventListener(key, this._to[key]);
     });
   }
+  
+  onMouseDown = function (_ele, e) {
+    this.state.mouseDown=true;
+    this._ScreenY = this._startScreenY = e.pageY;
+    // 一开始 refreshing 为 true 时 this._lastScreenY 有值
+    this._lastScreenY = this._lastScreenY || 0;
+  };
 
   onTouchStart = (_ele: any, e: any) => {
     this._ScreenY = this._startScreenY = e.touches[0].screenY;
@@ -176,6 +190,50 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
 
     return dy;
   }
+  
+  this.onMouseMove = function (ele, e) {
+        // 使用 pageY 对比有问题
+        if (!(this.state.mouseDown&&!this.state.mouseUp)){return}
+        var _screenY = e.pageY;
+        var direction = this.props.direction;
+        // 拖动方向不符合的不处理
+
+        if (direction === UP && this._startScreenY < _screenY || direction === DOWN && this._startScreenY > _screenY) {
+            return;
+        }
+        if (this.isEdge(ele, direction)) {
+            if (!this.state.dragOnEdge) {
+                // 当用户开始往上滑的时候isEdge还是false的话，会导致this._ScreenY不是想要的，只有当isEdge为true时，再上滑，才有意义
+                // 下面这行代码解决了上面这个问题
+                this._ScreenY = this._startScreenY = e.pageY;
+                this.setState({ dragOnEdge: true });
+            }
+            e.preventDefault();
+            // add stopPropagation with fastclick will trigger content onClick event. why?
+            // ref https://github.com/ant-design/ant-design-mobile/issues/2141
+            // e.stopPropagation();
+            var _diff = Math.round(_screenY - this._ScreenY);
+            this._ScreenY = _screenY;
+            this._lastScreenY += this.damping(_diff);
+            this.setContentStyle(this._lastScreenY);
+            if (Math.abs(this._lastScreenY) < this.props.distanceToRefresh) {
+                if (this.state.currSt !== 'deactivate') {
+                    // console.log('back to the distance');
+                    this.setState({ currSt: 'deactivate' });
+                }
+            } else {
+                if (this.state.currSt === 'deactivate') {
+                    // console.log('reach to the distance');
+                    this.setState({ currSt: 'activate' });
+                }
+            }
+            // https://github.com/ant-design/ant-design-mobile/issues/573#issuecomment-339560829
+            // iOS UIWebView issue, It seems no problem in WKWebView
+            if (isWebView && e.pageY < 0) {
+                _this.onMouseUp();
+            }
+        }
+    };
 
   onTouchMove = (ele: any, e: any) => {
     // 使用 pageY 对比有问题
@@ -226,6 +284,28 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
       }
     }
   }
+  
+    this.onMouseUp = function () {
+      this.state.mouseUp=false;
+      this.state.mouseDown=false;
+      if (this.state.dragOnEdge) {
+          this.setState({ dragOnEdge: false });
+      }
+      if (this.state.currSt === 'activate') {
+          this.setState({ currSt: 'release' });
+          this._timer = setTimeout(function () {
+              if (!this.props.refreshing) {
+                  this.setState({ currSt: 'finish' }, function () {
+                      return this.reset();
+                  });
+              }
+              this._timer = undefined;
+          }, 1000);
+          this.props.onRefresh();
+      } else {
+          this.reset();
+      }
+  };
 
   onTouchEnd = () => {
     if (this.state.dragOnEdge) {
