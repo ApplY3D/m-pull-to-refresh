@@ -46,6 +46,7 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
     damping: 100,
     indicator: INDICATOR as Indicator,
     scale: 0.6,
+    enableMouse: false,
   } as PropsType;
 
   // https://github.com/yiminghe/zscroller/blob/2d97973287135745818a0537712235a39a6a62a1/src/Scroller.js#L355
@@ -54,7 +55,8 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
     currSt: 'deactivate',
     dragOnEdge: false,
     mouseDown: false,
-		mouseUp: false
+    mouseUp: false,
+    directionY = false;
   };
 
   containerRef: any;
@@ -63,6 +65,9 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
   _ScreenY: any;
   _startScreenY: any;
   _lastScreenY: any;
+  _ScreenX: any;
+  _startScreenX: any;
+  _lastScreenX: any;
   _timer: any;
 
   _isMounted = false;
@@ -120,18 +125,28 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
     if (!ele) {
       // like return in destroy fn ???!!
       return;
-    }
-    this._to = {
-      touchstart: this.onTouchStart.bind(this, ele),
-      touchmove: this.onTouchMove.bind(this, ele),
-      touchend: this.onTouchEnd.bind(this, ele),
-      touchcancel: this.onTouchEnd.bind(this, ele),
-      //mouse events
-      mousedown: this.onMouseDown.bind(this, ele),
-      mousemove: this.onMouseMove.bind(this, ele),
-      mouseup: this.onMouseUp.bind(this, ele),
-      mouseup: this.onMouseUp.bind(this, ele),
-    };
+    }	  
+	if(this.props.enableMouse){
+		this._to = {
+			mousedown: this.onMouseDown.bind(this, ele),
+			mousemove: this.onMouseMove.bind(this, ele),
+			mouseup: this.onMouseUp.bind(this, ele),
+			mouseup: this.onMouseUp.bind(this, ele),
+			touchstart: this.onTouchStart.bind(this, ele),
+			touchmove: this.onTouchMove.bind(this, ele),
+			touchend: this.onTouchEnd.bind(this, ele),
+			touchcancel: this.onTouchEnd.bind(this, ele)
+		};
+	}else{
+		this._to = {
+			touchstart: this.onTouchStart.bind(this, ele),
+			touchmove: this.onTouchMove.bind(this, ele),
+			touchend: this.onTouchEnd.bind(this, ele),
+			touchcancel: this.onTouchEnd.bind(this, ele)
+		};
+	}
+	  
+	  
     Object.keys(this._to).forEach(key => {
       ele.addEventListener(key, this._to[key], willPreventDefault);
     });
@@ -152,6 +167,9 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
     this._ScreenY = this._startScreenY = e.pageY;
     // 一开始 refreshing 为 true 时 this._lastScreenY 有值
     this._lastScreenY = this._lastScreenY || 0;
+	  
+    this._ScreenX = this._startScreenX = e.pageX;
+    this._lastScreenX = this._lastScreenX || 0;
   };
 
   onTouchStart = (_ele: any, e: any) => {
@@ -201,6 +219,11 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
         if (direction === UP && this._startScreenY < _screenY || direction === DOWN && this._startScreenY > _screenY) {
             return;
         }
+	if (Math.abs(this._startScreenY - _screenY) < Math.abs(this._startScreenX - _screenX)) {
+		if (!this.state.directionY){
+			return this.onMouseUp();
+		}
+    	}
         if (this.isEdge(ele, direction)) {
             if (!this.state.dragOnEdge) {
                 // 当用户开始往上滑的时候isEdge还是false的话，会导致this._ScreenY不是想要的，只有当isEdge为true时，再上滑，才有意义
@@ -288,6 +311,7 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
     onMouseUp = function () {
       this.state.mouseUp=false;
       this.state.mouseDown=false;
+      this.state.directionY = false;
       if (this.state.dragOnEdge) {
           this.setState({ dragOnEdge: false });
       }
@@ -344,7 +368,7 @@ export default class PullToRefresh extends React.Component<PropsType, any> {
 
     const {
       className, prefixCls, children, getScrollContainer,
-      direction, onRefresh, refreshing, indicator, distanceToRefresh, ...restProps,
+      direction, onRefresh, refreshing, indicator, distanceToRefresh, ...restProps, enableMouse
     } = props;
 
     const renderChildren = <StaticRenderer
