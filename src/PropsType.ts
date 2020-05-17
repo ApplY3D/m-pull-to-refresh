@@ -19,4 +19,5 @@ export interface PropsType {
   style?: React.CSSProperties;
   damping?: number;
   scale?: number;
+  enableMouse?: boolean;
 }
